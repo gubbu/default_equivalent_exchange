@@ -1,0 +1,7 @@
+formspec_version[6]
+size[10.5,5]
+label[0.4,0.6; Philosopher's Stone]
+dropdown[5.1,1.6;4.3,0.8;mode_select;Cube,Panel,Line;1;false]
+label[0.8,2;Selected Mode:]
+dropdown[5.1,2.6;4.3,0.8;charge_drop_down;1,2,3,4,5;1;false]
+label[0.9,3;Area of effect:]

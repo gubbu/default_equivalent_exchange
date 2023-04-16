@@ -1,0 +1,5 @@
+formspec_version[6]
+size[10.5,5]
+label[4.1,0.4;Divining Rod]
+dropdown[5.1,1.6;4.3,0.8;mode_select;3x3x3,16x3x3,64x3x3;1;false]
+label[0.8,2;Selected Mode:]
