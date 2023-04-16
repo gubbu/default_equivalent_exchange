@@ -30,6 +30,7 @@ local emc_values = {
 	["default:stone_with_mese"] = 64,
 	["default:stone_with_diamond"] = 8192,
 	["default:gravel"] = 4,
+	["default:sandstone"] = 4,
 	["default:obsidian"] = 64,
 	["default:clay"] = 256,
 	["default:clay_lump"] = 64,
@@ -52,6 +53,24 @@ local group_emc_values = {
 	["water_bucket"] = 769,
 	["glass"] = 1,
 	["grass"] = 1,
+}
+
+-- TODO: water => ice, Lava => obsidian, Flowers => Other Flowers
+local philosophers_stone_node_conversion_table = {
+	["default:stone"] = "default:cobble",
+	["default:cobble"] = "default:stone",
+	["default:dirt_with_grass"] = "default:sand",
+	["default:dirt"] = "default:sand",
+	["default:sand"] = "default:dirt_with_grass",
+	["default:gravel"] = "default:sandstone",
+	["default:sandstone"] = "default:gravel",
+}
+
+local philosophers_stone_node_conversion_table_sneak = {
+	["default:stone"] = "default:dirt_with_grass",
+	["default:cobble"] = "default:dirt_with_grass",
+	["default:sand"] = "default:cobble",
+	["default:glass"] = "default:sand",
 }
 
 -- returns 0 if the emc value for the item is not defined
@@ -346,6 +365,35 @@ local function calculate_orthogonal_to_standard_basis_vector(unit_vector)
 	return orthogonal
 end
 
+minetest.register_tool("equivalent_exchange:philosophers_stone",
+{
+	description = "Convert Items using the crafting grid, and convert nodes to other nodes.",
+	inventory_image = "equivalent_exchange_philosophers_stone.png",
+	on_use = function (item_stack, user, pointed_thing)
+		if user:is_player() and pointed_thing.type == "node" then
+				local name = minetest.get_node(pointed_thing.under).name
+				if name == nil then
+					return
+				end
+				-- get if player is shift clicking
+				if user:get_player_control().sneak then
+					local convert_to = philosophers_stone_node_conversion_table_sneak[name]
+					if convert_to ~= nil then
+						minetest.set_node(pointed_thing.under, {name = convert_to})
+					end
+				else
+					local convert_to = philosophers_stone_node_conversion_table[name]
+					if convert_to ~= nil then
+						minetest.set_node(pointed_thing.under, {name = convert_to})
+					end
+				end
+		end
+
+
+	end
+}
+)
+
 minetest.register_tool("equivalent_exchange:divining_rod_low",
 	{ description = "Search for average EMC inside a 3x3x3 area by left clicking!",
 	inventory_image = "equivalent_exchange_low_divining_rod.png^[colorize:#0cf058:128",
@@ -519,3 +567,62 @@ minetest.register_craft({
 	}
 }
 )
+
+minetest.register_craft({
+	type = "shaped",
+	output = "equivalent_exchange:divining_rod_medium 1",
+	recipe = {
+		{ "equivalent_exchange:covalence_dust_medium", "equivalent_exchange:covalence_dust_medium", "equivalent_exchange:covalence_dust_medium" },
+		{ "equivalent_exchange:covalence_dust_medium", "equivalent_exchange:divining_rod_low", "equivalent_exchange:covalence_dust_medium" },
+		{ "equivalent_exchange:covalence_dust_medium", "equivalent_exchange:covalence_dust_medium", "equivalent_exchange:covalence_dust_medium" }
+	}
+}
+)
+
+-- philosphers stone recipes
+minetest.register_craft({
+	type = "shapeless",
+	output = "default:gold_ingot",
+	recipe = {
+		"default:steel_ingot",
+		"default:steel_ingot",
+		"default:steel_ingot",
+		"default:steel_ingot",
+		"default:steel_ingot",
+		"default:steel_ingot",
+		"default:steel_ingot",
+		"default:steel_ingot",
+		"equivalent_exchange:philosophers_stone"
+	},
+	replacements = {
+		{"equivalent_exchange:philosophers_stone", "equivalent_exchange:philosophers_stone"}
+	}
+})
+
+minetest.register_craft({
+	type = "shapeless",
+	output = "default:diamond",
+	recipe = {
+		"default:gold_ingot",
+		"default:gold_ingot",
+		"default:gold_ingot",
+		"default:gold_ingot",
+		"equivalent_exchange:philosophers_stone"
+	},
+	replacements = {
+		{"equivalent_exchange:philosophers_stone", "equivalent_exchange:philosophers_stone"}
+	}
+})
+
+minetest.register_craft({
+	type = "shapeless",
+	output = "default:dirt_with_grass",
+	recipe = {
+		"default:dirt",
+		"equivalent_exchange:philosophers_stone"
+	},
+	replacements = {
+		{"equivalent_exchange:philosophers_stone", "equivalent_exchange:philosophers_stone"}
+	}
+})
+
