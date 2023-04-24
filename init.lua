@@ -88,6 +88,7 @@ function equivalent_exchange.get_furnace_active_formspec(item_percent, stored_em
 		"list[context;src;2.75,0.5;1,1;]" ..
 		"list[context;fuel;0.75,1.5;3,2;]" ..
 		"image[2.75,0.5;1,1;exchange_table.png]" ..
+		"label[0.8,1.1;Input]" ..
 		"label[0.375,0.5; EMC:" .. minetest.formspec_escape(stored_emc) .. " ]" ..
 		"image[3.75,1.5;1,1;gui_furnace_arrow_bg.png^[lowpart:" ..
 		(item_percent) .. ":gui_furnace_arrow_fg.png^[transformR270]" ..

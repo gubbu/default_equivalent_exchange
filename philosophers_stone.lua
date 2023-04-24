@@ -135,7 +135,7 @@ minetest.register_tool("equivalent_exchange:philosophers_stone",
 
             elseif mode == "Cube" then
                 -- note ... due to abuse concerns:
-                charge_int = math.max(charge_int, 3)
+                charge_int = math.min(charge_int, 3)
                 local ortho = calculate_orthogonal_to_standard_basis_vector(pointed_velocity)
                 pos1 = {
                     x = pointed_thing.under.x + ortho.x * charge_int,
