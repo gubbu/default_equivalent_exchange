@@ -21,6 +21,11 @@ local emc_values = {
 	["default:diamond"] = 8192,
 	["equivalent_exchange:covalence_dust_low"] = 1,
 	["equivalent_exchange:covalence_dust_medium"] = 8,
+	["farming:seed_wheat"] = 16,
+	["farming:wheat"] = 24,
+	["bucket:bucket_empty "] = 768,
+	["bucket:bucket_water"] = 769,
+	["bucket:bucket_lava"] = 832,
 	-- Node EMC Values
 	["default:stone_with_coal"] = 32,
 	["default:stone_with_copper"] = 85,
@@ -83,25 +88,25 @@ end
 -- Formspecs
 --
 -- basically a modified copy of default/furnace.lua , but listrings [https://forum.minetest.net/viewtopic.php?t=12629] where modified for ease of use
-function equivalent_exchange.get_furnace_active_formspec(item_percent, stored_emc)
+function equivalent_exchange.transmutation_active_formspec(item_percent, stored_emc)
 	return "size[8,8.5]" ..
-		"list[context;src;2.75,0.5;1,1;]" ..
-		"list[context;fuel;0.75,1.5;3,2;]" ..
-		"image[2.75,0.5;1,1;exchange_table.png]" ..
-		"label[0.8,1.1;Input]" ..
-		"label[0.375,0.5; EMC:" .. minetest.formspec_escape(stored_emc) .. " ]" ..
-		"image[3.75,1.5;1,1;gui_furnace_arrow_bg.png^[lowpart:" ..
-		(item_percent) .. ":gui_furnace_arrow_fg.png^[transformR270]" ..
-		"list[context;dst;4.75,0.96;3,3;]" ..
-		"list[current_player;main;0,4.25;8,1;]" ..
-		"list[current_player;main;0,5.5;8,3;8]" ..
-		"listring[context;dst]" ..
-		"listring[current_player;main]" ..
-		"listring[context;fuel]" ..
-		"listring[current_player;main]" ..
-		"listring[context;src]" ..
-		"listring[current_player;main]" ..
-		default.get_hotbar_bg(0, 4.25)
+			"list[context;src;2.75,0.5;1,1;]" ..
+			"list[context;fuel;0.75,1.5;3,2;]" ..
+			"image[2.75,0.5;1,1;exchange_table.png]" ..
+			"label[0.8,1.1;Input]" ..
+			"label[0.375,0.5; EMC:" .. minetest.formspec_escape(stored_emc) .. " ]" ..
+			"image[3.75,1.5;1,1;gui_furnace_arrow_bg.png^[lowpart:" ..
+			(item_percent) .. ":gui_furnace_arrow_fg.png^[transformR270]" ..
+			"list[context;dst;4.75,0.6;3,3;]" ..
+			"list[current_player;main;0,4.25;8,1;]" ..
+			"list[current_player;main;0,5.5;8,3;8]" ..
+			"listring[context;dst]" ..
+			"listring[current_player;main]" ..
+			"listring[context;fuel]" ..
+			"listring[current_player;main]" ..
+			"listring[context;src]" ..
+			"listring[current_player;main]" ..
+			default.get_hotbar_bg(0, 4.25)
 end
 
 --
@@ -217,25 +222,127 @@ local function furnace_node_timer(pos, elapsed)
 	--
 	-- Update formspec, infotext and node
 	--
-	local formspec = equivalent_exchange.get_furnace_active_formspec(
+	local formspec = equivalent_exchange.transmutation_active_formspec(
 		item_percent,
 		emc_storage_int
 	)
 
-	local infotext = "EMC Table: " .. tostring(emc_storage_int)
+	-- local infotext = "EMC Table: " .. tostring(emc_storage_int)
 	--
 	-- Set meta values
 	--
 	meta:set_string("formspec", formspec)
-	meta:set_string("infotext", infotext)
+	-- meta:set_string("infotext", infotext)
 	meta:set_int("emc_storage", emc_storage_int)
 
 	return false
 end
 
+local function collector_timer(pos, elapsed)
+	local meta = minetest.get_meta(pos)
+	local emc_storage_int = meta:get_int("emc_storage") or 0
+
+	local inv = meta:get_inventory()
+	local srclist = inv:get_list("src")
+	emc_storage_int = emc_storage_int + 1
+	-- TODO: add reversedgeneration rate and upgrades
+
+	local item_percent = 0
+	if srclist and not srclist[1]:is_empty() then
+		local src_stack = srclist[1]
+		local src_name = src_stack:get_name()
+		local src_value = get_item_emc_value(src_stack)
+		item_percent = math.min(100, math.floor(emc_storage_int / src_value * 100))
+		local potential_products = 0
+		if src_value > 0 and emc_storage_int >= src_value then
+			potential_products = math.floor(emc_storage_int / src_value)
+			local max_stack_size = ItemStack({ name = src_name, count = potential_products }):get_stack_max()
+			emc_storage_int = emc_storage_int - potential_products * src_value
+			local dstlist = inv:get_list("dst")
+			-- put > max_stack items into the dst inventory TODO: simplify this?
+			for i, item_stack in ipairs(dstlist) do
+				if item_stack:is_empty() then
+					if potential_products >= max_stack_size then
+						potential_products = potential_products - max_stack_size
+						local full_stack = ItemStack({ name = src_name, count = max_stack_size })
+						inv:set_stack("dst", i, full_stack)
+					else
+						local last_stack = ItemStack({ name = src_name, count = potential_products })
+						inv:set_stack("dst", i, last_stack)
+						potential_products = 0
+						break
+					end
+				elseif item_stack:get_name() == src_name then
+					local put_on = max_stack_size - item_stack:get_count()
+					if put_on == 0 then --if this condition is removed: this does not work and a bug shows, where stacksizes >6000 in the next loop
+						::continue::
+					elseif put_on >= potential_products then
+						local new_stack_size = potential_products + item_stack:get_count()
+						potential_products = 0
+						local last_stack = ItemStack({ name = src_name, count = new_stack_size })
+						inv:set_stack("dst", i, last_stack)
+						break
+					else
+						potential_products = potential_products - put_on
+						local full_stack = ItemStack({ name = src_name, count = max_stack_size })
+						inv:set_stack("dst", i, full_stack)
+					end
+				end
+			end
+		end
+		local leftovers_emc_value = potential_products * src_value
+		--convert leftovers back to emc:
+		emc_storage_int = leftovers_emc_value + emc_storage_int
+		item_percent = math.min(100, math.floor(emc_storage_int / src_value * 100))
+	end
+
+	meta:set_int("emc_storage", emc_storage_int)
+	meta:set_string("infotext", "current_emc:" .. tostring(emc_storage_int))
+	meta:set_string("formspec", equivalent_exchange.energy_collector_formspec(item_percent, emc_storage_int))
+	return true
+end
+
 --
 -- Node definitions
 --
+
+function equivalent_exchange.energy_collector_formspec(item_percent, stored_emc)
+	return "size[8,8.5]" ..
+			"list[context;src;2.75,1.5;1,1;]" ..
+			"image[2.75,1.5;1,1;exchange_table.png]" ..
+			"label[0.8,0.1;Energy Collector]" ..
+			"label[0.375,0.5; EMC:" .. minetest.formspec_escape(stored_emc) .. " ]" ..
+			"image[3.75,1.5;1,1;gui_furnace_arrow_bg.png^[lowpart:" ..
+			(item_percent) .. ":gui_furnace_arrow_fg.png^[transformR270]" ..
+			"list[context;dst;4.75,0.6;3,3;]" ..
+			"list[current_player;main;0,4.25;8,1;]" ..
+			"list[current_player;main;0,5.5;8,3;8]" ..
+			"listring[context;dst]" ..
+			"listring[current_player;main]" ..
+			"listring[context;fuel]" ..
+			"listring[current_player;main]" ..
+			"listring[context;src]" ..
+			"listring[current_player;main]" ..
+			default.get_hotbar_bg(0, 4.25)
+end
+
+minetest.register_node("equivalent_exchange:energy_collector", {
+	description = "Energy Collector",
+	tiles = {
+		"equivalent_exchange_emc_collector.png"
+	},
+	groups = { cracky = 2 },
+	on_timer = collector_timer,
+	on_construct = function(pos)
+		minetest.get_node_timer(pos):start(1.0)
+		local meta = minetest.get_meta(pos)
+		local inv = meta:get_inventory()
+		inv:set_size('src', 1)
+		inv:set_size('dst', 9)
+		meta:set_string("formspec", equivalent_exchange.energy_collector_formspec(0.5, 0))
+	end,
+	allow_metadata_inventory_put = allow_metadata_inventory_put
+})
 minetest.register_node("equivalent_exchange:transmutationtable", {
 	description = S("Transmute Materials"),
 	tiles = {
@@ -292,15 +399,18 @@ minetest.register_node("equivalent_exchange:transmutationtable", {
 minetest.register_craft({
 	output = "equivalent_exchange:transmutationtable",
 	recipe = {
-		{ "default:diamond", "default:diamond", "default:diamond" },
-		{ "default:diamond", "default:diamond", "default:diamond" },
-		{ "default:diamond", "group:stone", "default:diamond" },
+		{ "default:obsidian", "group:stone", "default:obsidian" },
+		{ "group:stone", "equivalent_exchange:philosophers_stone", "group:stone" },
+		{ "default:obsidian", "group:stone", "default:obsidian" },
+	},
+	replacements = {
+		{"equivalent_exchange:philosophers_stone", "equivalent_exchange:philosophers_stone"}
 	}
 })
 
 minetest.register_craftitem("equivalent_exchange:covalence_dust_low",
 	{ description = "Low covalence dust allows for crafting other items.",
-	inventory_image = "equivalent_exchange_covalence_dust.png^[colorize:#0cf058:128" })
+		inventory_image = "equivalent_exchange_covalence_dust.png^[colorize:#0cf058:128" })
 
 minetest.register_craft({
 	type = "shapeless",
@@ -350,59 +460,60 @@ local function calculate_orthogonal_to_standard_basis_vector(unit_vector)
 	return orthogonal
 end
 
-
-
 minetest.register_tool("equivalent_exchange:divining_rod_low",
 	{ description = "Search for average EMC inside a 3x3x3 area by left clicking!",
-	inventory_image = "equivalent_exchange_low_divining_rod.png^[colorize:#0cf058:128",
-	on_use = function(item_stack, user, pointed_thing)
+		inventory_image = "equivalent_exchange_low_divining_rod.png^[colorize:#0cf058:128",
+		on_use = function(item_stack, user, pointed_thing)
 
-		if pointed_thing.type == "node" and user:is_player() then
-			local pointed_velocity = {
-				x = pointed_thing.under.x - pointed_thing.above.x,
-				y = pointed_thing.under.y - pointed_thing.above.y,
-				z = pointed_thing.under.z - pointed_thing.above.z
-			}
+			if pointed_thing.type == "node" and user:is_player() then
+				local pointed_velocity = {
+					x = pointed_thing.under.x - pointed_thing.above.x,
+					y = pointed_thing.under.y - pointed_thing.above.y,
+					z = pointed_thing.under.z - pointed_thing.above.z
+				}
 
-			-- construct 2 points 3D cubes around the target
-			local pos1 = {
-				x = pointed_thing.under.x + pointed_velocity.x + 1,
-				y = pointed_thing.under.y + pointed_velocity.y + 1,
-				z = pointed_thing.under.z + pointed_velocity.z + 1
-			}
+				-- construct 2 points 3D cubes around the target
+				local pos1 = {
+					x = pointed_thing.under.x + pointed_velocity.x + 1,
+					y = pointed_thing.under.y + pointed_velocity.y + 1,
+					z = pointed_thing.under.z + pointed_velocity.z + 1
+				}
 
-			local pos2 = {
-				x = pointed_thing.under.x + pointed_velocity.x - 1,
-				y = pointed_thing.under.y + pointed_velocity.y - 1,
-				z = pointed_thing.under.z + pointed_velocity.z - 1
-			}
+				local pos2 = {
+					x = pointed_thing.under.x + pointed_velocity.x - 1,
+					y = pointed_thing.under.y + pointed_velocity.y - 1,
+					z = pointed_thing.under.z + pointed_velocity.z - 1
+				}
 
 
-			local block_count = 0
-			local total_sum = 0
-			for x = math.min(pos1.x, pos2.x), math.max(pos1.x, pos2.x) do
-				for y = math.min(pos1.y, pos2.y), math.max(pos1.y, pos2.y) do
-					for z = math.min(pos1.z, pos2.z), math.max(pos1.z, pos2.z) do
-						local name = minetest.get_node({ x = x, y = y, z = z }).name
-						if name ~= "air" then
-							block_count = block_count + 1
-							total_sum = total_sum + get_node_value(name)
+				local block_count = 0
+				local total_sum = 0
+				for x = math.min(pos1.x, pos2.x), math.max(pos1.x, pos2.x) do
+					for y = math.min(pos1.y, pos2.y), math.max(pos1.y, pos2.y) do
+						for z = math.min(pos1.z, pos2.z), math.max(pos1.z, pos2.z) do
+							local name = minetest.get_node({ x = x, y = y, z = z }).name
+							if name ~= "air" then
+								block_count = block_count + 1
+								total_sum = total_sum + get_node_value(name)
+							end
 						end
 					end
 				end
+
+
+				local average = "no blocks here"
+
+				if block_count ~= 0 then
+					local average_number = math.ceil(total_sum / block_count)
+					average = tostring(average_number)
+				end
+
+				minetest.chat_send_player(user:get_player_name(),
+					"Scanned Blocks: " ..
+					minetest.colorize("#34ebab", tostring(block_count)) ..
+					"Calculated average Block EMC in Area: " .. minetest.colorize("#d483fc", average))
 			end
-
-
-			local average = "no blocks here"
-
-			if block_count ~= 0 then
-				local average_number = math.ceil(total_sum / block_count)
-				average = tostring(average_number)
-			end
-
-			minetest.chat_send_player(user:get_player_name(), "Scanned Blocks: " .. minetest.colorize("#34ebab", tostring(block_count)) .. "Calculated average Block EMC in Area: " .. minetest.colorize("#d483fc", average))
-		end
-	end })
+		end })
 
 function equivalent_exchange.charge_medium(itemstack, placer, pointed_thing)
 	if placer:is_player() then
@@ -422,89 +533,107 @@ end
 
 minetest.register_tool("equivalent_exchange:divining_rod_medium",
 	{ description = "Search for average EMC inside a 3x3x3 - 16x3x3 area by left clicking!",
-	inventory_image = "equivalent_exchange_low_divining_rod.png^[colorize:#0ce8f0:128",
-	on_use = function(item_stack, user, pointed_thing)
-		if pointed_thing.type == "node" and user:is_player() then
+		inventory_image = "equivalent_exchange_low_divining_rod.png^[colorize:#0ce8f0:128",
+		on_use = function(item_stack, user, pointed_thing)
+			if pointed_thing.type == "node" and user:is_player() then
 
-			local charge_multiplier = 15
-			-- charge can be either 0 or 1 for the medium divining rod.
-			if item_stack:get_meta():get_int("charge") == 1 then
-				charge_multiplier = 2
-			end
+				local charge_multiplier = 15
+				-- charge can be either 0 or 1 for the medium divining rod.
+				if item_stack:get_meta():get_int("charge") == 1 then
+					charge_multiplier = 2
+				end
 
-			local pointed_velocity = {
-				x = pointed_thing.under.x - pointed_thing.above.x,
-				y = pointed_thing.under.y - pointed_thing.above.y,
-				z = pointed_thing.under.z - pointed_thing.above.z
-			}
+				local pointed_velocity = {
+					x = pointed_thing.under.x - pointed_thing.above.x,
+					y = pointed_thing.under.y - pointed_thing.above.y,
+					z = pointed_thing.under.z - pointed_thing.above.z
+				}
 
-			local orthogonal = calculate_orthogonal_to_standard_basis_vector(pointed_velocity)
+				local orthogonal = calculate_orthogonal_to_standard_basis_vector(pointed_velocity)
 
-			-- construct 2 points 3D cubes around the target
-			local pos1 = {
-				x = pointed_thing.under.x - orthogonal.x,
-				y = pointed_thing.under.y - orthogonal.y,
-				z = pointed_thing.under.z - orthogonal.z
-			}
+				-- construct 2 points 3D cubes around the target
+				local pos1 = {
+					x = pointed_thing.under.x - orthogonal.x,
+					y = pointed_thing.under.y - orthogonal.y,
+					z = pointed_thing.under.z - orthogonal.z
+				}
 
-			local pos2 = {
-				x = pointed_thing.under.x + orthogonal.x + pointed_velocity.x * charge_multiplier,
-				y = pointed_thing.under.y + orthogonal.y + pointed_velocity.y * charge_multiplier,
-				z = pointed_thing.under.z + orthogonal.z + pointed_velocity.z * charge_multiplier
-			}
+				local pos2 = {
+					x = pointed_thing.under.x + orthogonal.x + pointed_velocity.x * charge_multiplier,
+					y = pointed_thing.under.y + orthogonal.y + pointed_velocity.y * charge_multiplier,
+					z = pointed_thing.under.z + orthogonal.z + pointed_velocity.z * charge_multiplier
+				}
 
 
-			local block_count = 0
-			local total_sum = 0
-			local max_emc = 0
-			for x = math.min(pos1.x, pos2.x), math.max(pos1.x, pos2.x) do
-				for y = math.min(pos1.y, pos2.y), math.max(pos1.y, pos2.y) do
-					for z = math.min(pos1.z, pos2.z), math.max(pos1.z, pos2.z) do
-						local name = minetest.get_node({ x = x, y = y, z = z }).name
-						if name ~= "air" then
-							block_count = block_count + 1
-							local current_emc_value = get_node_value(name)
-							total_sum = total_sum + current_emc_value
-							max_emc = math.max(max_emc, current_emc_value)
+				local block_count = 0
+				local total_sum = 0
+				local max_emc = 0
+				for x = math.min(pos1.x, pos2.x), math.max(pos1.x, pos2.x) do
+					for y = math.min(pos1.y, pos2.y), math.max(pos1.y, pos2.y) do
+						for z = math.min(pos1.z, pos2.z), math.max(pos1.z, pos2.z) do
+							local name = minetest.get_node({ x = x, y = y, z = z }).name
+							if name ~= "air" then
+								block_count = block_count + 1
+								local current_emc_value = get_node_value(name)
+								total_sum = total_sum + current_emc_value
+								max_emc = math.max(max_emc, current_emc_value)
+							end
 						end
 					end
 				end
+
+
+				local average = "no blocks here"
+
+				if block_count ~= 0 then
+					local average_number = math.ceil(total_sum / block_count)
+					average = tostring(average_number)
+				end
+
+				minetest.chat_send_player(user:get_player_name(),
+					"Scanned Blocks: " ..
+					minetest.colorize("#34ebab", tostring(block_count)) ..
+					"Calculated average Block EMC in Area: " .. minetest.colorize("#d483fc", average) .. ". Max EMC: " .. max_emc)
 			end
+		end,
 
-
-			local average = "no blocks here"
-
-			if block_count ~= 0 then
-				local average_number = math.ceil(total_sum / block_count)
-				average = tostring(average_number)
-			end
-
-			minetest.chat_send_player(user:get_player_name(), "Scanned Blocks: " .. minetest.colorize("#34ebab", tostring(block_count)) .. "Calculated average Block EMC in Area: " .. minetest.colorize("#d483fc", average) .. ". Max EMC: " .. max_emc)
-		end
-	end,
-
-	on_secondary_use = equivalent_exchange.charge_medium,
-	on_place = equivalent_exchange.charge_medium
-})
+		on_secondary_use = equivalent_exchange.charge_medium,
+		on_place = equivalent_exchange.charge_medium
+	})
 
 minetest.register_craft({
 	type = "shaped",
 	output = "equivalent_exchange:divining_rod_low 1",
 	recipe = {
-		{ "equivalent_exchange:covalence_dust_low", "equivalent_exchange:covalence_dust_low", "equivalent_exchange:covalence_dust_low" },
+		{ "equivalent_exchange:covalence_dust_low", "equivalent_exchange:covalence_dust_low",
+			"equivalent_exchange:covalence_dust_low" },
 		{ "equivalent_exchange:covalence_dust_low", "", "equivalent_exchange:covalence_dust_low" },
-		{ "equivalent_exchange:covalence_dust_low", "equivalent_exchange:covalence_dust_low", "equivalent_exchange:covalence_dust_low" }
+		{ "equivalent_exchange:covalence_dust_low", "equivalent_exchange:covalence_dust_low",
+			"equivalent_exchange:covalence_dust_low" }
 	}
 }
 )
 
+minetest.register_craft({
+	type = "shaped",
+	output = "equivalent_exchange:divining_rod_medium 1",
+	recipe = {
+		{ "equivalent_exchange:covalence_dust_medium", "equivalent_exchange:covalence_dust_medium",
+			"equivalent_exchange:covalence_dust_medium" },
+		{ "equivalent_exchange:covalence_dust_medium", "equivalent_exchange:divining_rod_low",
+			"equivalent_exchange:covalence_dust_medium" },
+		{ "equivalent_exchange:covalence_dust_medium", "equivalent_exchange:covalence_dust_medium",
+			"equivalent_exchange:covalence_dust_medium" },
+	}
+})
+
 minetest.register_craftitem("equivalent_exchange:covalence_dust_medium",
 	{ description = "Medium covalence dust allows for crafting other items.",
-	inventory_image = "equivalent_exchange_covalence_dust.png^[colorize:#0ce8f0:128" })
+		inventory_image = "equivalent_exchange_covalence_dust.png^[colorize:#0ce8f0:128" })
 
 minetest.register_craftitem("equivalent_exchange:covalence_dust_high",
 	{ description = "Medium covalence dust allows for crafting other items.",
-	inventory_image = "equivalent_exchange_covalence_dust.png^[colorize:#1c5cff:128" })
+		inventory_image = "equivalent_exchange_covalence_dust.png^[colorize:#1c5cff:128" })
 
 minetest.register_craft({
 	type = "shapeless",
@@ -519,9 +648,12 @@ minetest.register_craft({
 	type = "shaped",
 	output = "equivalent_exchange:divining_rod_medium 1",
 	recipe = {
-		{ "equivalent_exchange:covalence_dust_medium", "equivalent_exchange:covalence_dust_medium", "equivalent_exchange:covalence_dust_medium" },
-		{ "equivalent_exchange:covalence_dust_medium", "equivalent_exchange:divining_rod_low", "equivalent_exchange:covalence_dust_medium" },
-		{ "equivalent_exchange:covalence_dust_medium", "equivalent_exchange:covalence_dust_medium", "equivalent_exchange:covalence_dust_medium" }
+		{ "equivalent_exchange:covalence_dust_medium", "equivalent_exchange:covalence_dust_medium",
+			"equivalent_exchange:covalence_dust_medium" },
+		{ "equivalent_exchange:covalence_dust_medium", "equivalent_exchange:divining_rod_low",
+			"equivalent_exchange:covalence_dust_medium" },
+		{ "equivalent_exchange:covalence_dust_medium", "equivalent_exchange:covalence_dust_medium",
+			"equivalent_exchange:covalence_dust_medium" }
 	}
 }
 )
@@ -530,4 +662,4 @@ minetest.register_craft({
 -- Load files
 local default_path = minetest.get_modpath("equivalent_exchange")
 
-dofile(default_path.."/philosophers_stone.lua")
+dofile(default_path .. "/philosophers_stone.lua")

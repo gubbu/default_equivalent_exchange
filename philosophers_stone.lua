@@ -9,7 +9,7 @@ local philosophers_stone_node_conversion_table = {
     ["default:sandstone"] = "default:gravel",
     ["default:water_source"] = "default:ice",
     ["default:lava_source"] = "default:obsidian",
-
+    ["default:silver_sand"] = "default:sand"
 }
 
 local philosophers_stone_node_conversion_table_sneak = {
