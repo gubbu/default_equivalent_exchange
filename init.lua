@@ -5,6 +5,7 @@ local S = default.get_translator
 local emc_values = {
 	-- items EMC Values
 	["default:stick"] = 2,
+	["default:blueberries"] = 4,
 	["default:flint"] = 4,
 	["default:furnace"] = 8,
 	["default:cactus"] = 8,
@@ -29,8 +30,9 @@ local emc_values = {
 	["bucket:bucket_water"] = 769,
 	["bucket:bucket_lava"] = 832,
 	["default:torch"] = 32,
-	["default:meselamp"] = 64*9+1,
+	["default:meselamp"] = 64 * 9 + 1,
 	-- Node EMC Values
+	["default:ice"] = 1,
 	["default:stone_with_coal"] = 128,
 	["default:stone_with_copper"] = 85,
 	["default:stone_with_tin"] = 85,
@@ -44,7 +46,10 @@ local emc_values = {
 	["default:clay"] = 256,
 	["default:clay_lump"] = 64,
 	["default:clay_brick"] = 64,
-	["default:diamondblock"] = 9*8192,
+	["default:diamondblock"] = 9 * 8192,
+	["equivalent_exchange:transmutationtable"] = 4*64+4,
+	["equivalent_exchange:energy_collector"] = (4*64+4)*4 + 4*64 + 9 * 8192,
+	["equivalent_exchange:philosophers_stone"] = 4*2048 + 4 * 64 + 8192
 }
 
 local group_emc_values = {
@@ -63,6 +68,7 @@ local group_emc_values = {
 	["water_bucket"] = 769,
 	["glass"] = 1,
 	["grass"] = 1,
+	--["fence"] = 9  -- Problem: fence gate is cheaper to make but in the same group
 }
 
 
@@ -95,23 +101,23 @@ end
 -- basically a modified copy of default/furnace.lua , but listrings [https://forum.minetest.net/viewtopic.php?t=12629] where modified for ease of use
 function equivalent_exchange.transmutation_active_formspec(item_percent, stored_emc)
 	return "size[8,8.5]" ..
-			"list[context;src;2.75,0.5;1,1;]" ..
-			"list[context;fuel;0.75,1.5;3,2;]" ..
-			"image[2.75,0.5;1,1;exchange_table.png]" ..
-			"label[0.8,1.1;Input]" ..
-			"label[0.375,0.5; EMC:" .. minetest.formspec_escape(stored_emc) .. " ]" ..
-			"image[3.75,1.5;1,1;gui_furnace_arrow_bg.png^[lowpart:" ..
-			(item_percent) .. ":gui_furnace_arrow_fg.png^[transformR270]" ..
-			"list[context;dst;4.75,0.6;3,3;]" ..
-			"list[current_player;main;0,4.25;8,1;]" ..
-			"list[current_player;main;0,5.5;8,3;8]" ..
-			"listring[context;dst]" ..
-			"listring[current_player;main]" ..
-			"listring[context;fuel]" ..
-			"listring[current_player;main]" ..
-			"listring[context;src]" ..
-			"listring[current_player;main]" ..
-			default.get_hotbar_bg(0, 4.25)
+		"list[context;src;2.75,0.5;1,1;]" ..
+		"list[context;fuel;0.75,1.5;3,2;]" ..
+		"image[2.75,0.5;1,1;exchange_table.png]" ..
+		"label[0.8,1.1;Input]" ..
+		"label[0.375,0.5; EMC:" .. minetest.formspec_escape(stored_emc) .. " ]" ..
+		"image[3.75,1.5;1,1;gui_furnace_arrow_bg.png^[lowpart:" ..
+		(item_percent) .. ":gui_furnace_arrow_fg.png^[transformR270]" ..
+		"list[context;dst;4.75,0.6;3,3;]" ..
+		"list[current_player;main;0,4.25;8,1;]" ..
+		"list[current_player;main;0,5.5;8,3;8]" ..
+		"listring[context;dst]" ..
+		"listring[current_player;main]" ..
+		"listring[context;fuel]" ..
+		"listring[current_player;main]" ..
+		"listring[context;src]" ..
+		"listring[current_player;main]" ..
+		default.get_hotbar_bg(0, 4.25)
 end
 
 --
@@ -302,7 +308,8 @@ local function collector_timer(pos, elapsed)
 
 	meta:set_int("emc_storage", emc_storage_int)
 	meta:set_string("infotext", "current_emc:" .. tostring(emc_storage_int))
-	meta:set_string("formspec", equivalent_exchange.energy_collector_formspec(item_percent, emc_storage_int, emc_table_level))
+	meta:set_string("formspec",
+		equivalent_exchange.energy_collector_formspec(item_percent, emc_storage_int, emc_table_level))
 	return true
 end
 
@@ -312,22 +319,22 @@ end
 
 function equivalent_exchange.energy_collector_formspec(item_percent, stored_emc, level)
 	return "size[8,8.5]" ..
-			"list[context;src;2.75,1.5;1,1;]" ..
-			"image[2.75,1.5;1,1;exchange_table.png]" ..
-			"label[0.8,0.1;Energy Collector Level: ".. minetest.formspec_escape(level) .."]" ..
-			"label[0.375,0.5; EMC:  " .. minetest.formspec_escape(stored_emc) .. " ]" ..
-			"image[3.75,1.5;1,1;gui_furnace_arrow_bg.png^[lowpart:" ..
-			(item_percent) .. ":gui_furnace_arrow_fg.png^[transformR270]" ..
-			"list[context;dst;4.75,0.6;3,3;]" ..
-			"list[current_player;main;0,4.25;8,1;]" ..
-			"list[current_player;main;0,5.5;8,3;8]" ..
-			"listring[context;dst]" ..
-			"listring[current_player;main]" ..
-			"listring[context;fuel]" ..
-			"listring[current_player;main]" ..
-			"listring[context;src]" ..
-			"listring[current_player;main]" ..
-			default.get_hotbar_bg(0, 4.25)
+		"list[context;src;2.75,1.5;1,1;]" ..
+		"image[2.75,1.5;1,1;exchange_table.png]" ..
+		"label[0.8,0.1;Energy Collector Level: " .. minetest.formspec_escape(level) .. "]" ..
+		"label[0.375,0.5; EMC:  " .. minetest.formspec_escape(stored_emc) .. " ]" ..
+		"image[3.75,1.5;1,1;gui_furnace_arrow_bg.png^[lowpart:" ..
+		(item_percent) .. ":gui_furnace_arrow_fg.png^[transformR270]" ..
+		"list[context;dst;4.75,0.6;3,3;]" ..
+		"list[current_player;main;0,4.25;8,1;]" ..
+		"list[current_player;main;0,5.5;8,3;8]" ..
+		"listring[context;dst]" ..
+		"listring[current_player;main]" ..
+		"listring[context;fuel]" ..
+		"listring[current_player;main]" ..
+		"listring[context;src]" ..
+		"listring[current_player;main]" ..
+		default.get_hotbar_bg(0, 4.25)
 end
 
 minetest.register_node("equivalent_exchange:energy_collector", {
@@ -346,21 +353,22 @@ minetest.register_node("equivalent_exchange:energy_collector", {
 		meta:set_string("formspec", equivalent_exchange.energy_collector_formspec(0.5, 0, 1))
 	end,
 	allow_metadata_inventory_put = allow_metadata_inventory_put,
-	on_punch = function (pos, node, puncher, pointed_thing)
-	 -- upgrade the energy collector:
-	 if puncher ~= nil and puncher:is_player() and puncher:get_wielded_item():get_name() == "equivalent_exchange:energy_collector" then
-		local inv_ref = puncher:get_inventory()
-		inv_ref:remove_item("main", ItemStack({name = "equivalent_exchange:energy_collector", count = 1}))
-		local meta = minetest.get_meta(pos)
-		local level = meta:get_int("level")
-		level = level + 1
-		meta:set_int("level", level)
-	end
+	on_punch = function(pos, node, puncher, pointed_thing)
+		-- upgrade the energy collector:
+		if puncher ~= nil and puncher:is_player() and
+			puncher:get_wielded_item():get_name() == "equivalent_exchange:energy_collector" then
+			local inv_ref = puncher:get_inventory()
+			inv_ref:remove_item("main", ItemStack({ name = "equivalent_exchange:energy_collector", count = 1 }))
+			local meta = minetest.get_meta(pos)
+			local level = meta:get_int("level")
+			level = level + 1
+			meta:set_int("level", level)
+		end
 	end
 })
 
 minetest.register_node("equivalent_exchange:transmutationtable", {
-	description = S("Transmute Materials"),
+	description = S("Transmutationtable"),
 	tiles = {
 		"exchange_table.png"
 	},
@@ -420,7 +428,16 @@ minetest.register_craft({
 		{ "default:obsidian", "group:stone", "default:obsidian" },
 	},
 	replacements = {
-		{"equivalent_exchange:philosophers_stone", "equivalent_exchange:philosophers_stone"}
+		{ "equivalent_exchange:philosophers_stone", "equivalent_exchange:philosophers_stone" }
+	}
+})
+
+minetest.register_craft({
+	output = "equivalent_exchange:energy_collector",
+	recipe = {
+		{ "default:obsidian", "equivalent_exchange:transmutationtable", "default:obsidian" },
+		{ "equivalent_exchange:transmutationtable", "default:diamondblock", "equivalent_exchange:transmutationtable" },
+		{ "default:obsidian", "equivalent_exchange:transmutationtable", "default:obsidian" },
 	}
 })
 
@@ -643,6 +660,7 @@ minetest.register_craft({
 	}
 })
 
+
 minetest.register_craftitem("equivalent_exchange:covalence_dust_medium",
 	{ description = "Medium covalence dust allows for crafting other items.",
 		inventory_image = "equivalent_exchange_covalence_dust.png^[colorize:#0ce8f0:128" })
@@ -656,20 +674,6 @@ minetest.register_craft({
 	output = "equivalent_exchange:covalence_dust_medium 40",
 	recipe = {
 		"default:steel_ingot", "default:mese_crystal_fragment"
-	}
-}
-)
-
-minetest.register_craft({
-	type = "shaped",
-	output = "equivalent_exchange:divining_rod_medium 1",
-	recipe = {
-		{ "equivalent_exchange:covalence_dust_medium", "equivalent_exchange:covalence_dust_medium",
-			"equivalent_exchange:covalence_dust_medium" },
-		{ "equivalent_exchange:covalence_dust_medium", "equivalent_exchange:divining_rod_low",
-			"equivalent_exchange:covalence_dust_medium" },
-		{ "equivalent_exchange:covalence_dust_medium", "equivalent_exchange:covalence_dust_medium",
-			"equivalent_exchange:covalence_dust_medium" }
 	}
 }
 )
