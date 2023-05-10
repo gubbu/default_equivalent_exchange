@@ -25,7 +25,7 @@ local emc_values = {
 	["equivalent_exchange:covalence_dust_medium"] = 8,
 	["farming:seed_wheat"] = 16,
 	["farming:wheat"] = 24,
-	["bucket:bucket_empty "] = 768,
+	["bucket:bucket_empty"] = 768,
 	["bucket:bucket_water"] = 769,
 	["bucket:bucket_lava"] = 832,
 	["default:torch"] = 32,
@@ -246,11 +246,10 @@ end
 local function collector_timer(pos, elapsed)
 	local meta = minetest.get_meta(pos)
 	local emc_storage_int = meta:get_int("emc_storage") or 0
-
+	local emc_table_level = meta:get_int("level") or 1
 	local inv = meta:get_inventory()
 	local srclist = inv:get_list("src")
-	emc_storage_int = emc_storage_int + 1
-	-- TODO: add reversedgeneration rate and upgrades
+	emc_storage_int = emc_storage_int + emc_table_level
 
 	local item_percent = 0
 	if srclist and not srclist[1]:is_empty() then
@@ -303,7 +302,7 @@ local function collector_timer(pos, elapsed)
 
 	meta:set_int("emc_storage", emc_storage_int)
 	meta:set_string("infotext", "current_emc:" .. tostring(emc_storage_int))
-	meta:set_string("formspec", equivalent_exchange.energy_collector_formspec(item_percent, emc_storage_int))
+	meta:set_string("formspec", equivalent_exchange.energy_collector_formspec(item_percent, emc_storage_int, emc_table_level))
 	return true
 end
 
@@ -311,12 +310,12 @@ end
 -- Node definitions
 --
 
-function equivalent_exchange.energy_collector_formspec(item_percent, stored_emc)
+function equivalent_exchange.energy_collector_formspec(item_percent, stored_emc, level)
 	return "size[8,8.5]" ..
 			"list[context;src;2.75,1.5;1,1;]" ..
 			"image[2.75,1.5;1,1;exchange_table.png]" ..
-			"label[0.8,0.1;Energy Collector]" ..
-			"label[0.375,0.5; EMC:" .. minetest.formspec_escape(stored_emc) .. " ]" ..
+			"label[0.8,0.1;Energy Collector Level: ".. minetest.formspec_escape(level) .."]" ..
+			"label[0.375,0.5; EMC:  " .. minetest.formspec_escape(stored_emc) .. " ]" ..
 			"image[3.75,1.5;1,1;gui_furnace_arrow_bg.png^[lowpart:" ..
 			(item_percent) .. ":gui_furnace_arrow_fg.png^[transformR270]" ..
 			"list[context;dst;4.75,0.6;3,3;]" ..
@@ -344,10 +343,22 @@ minetest.register_node("equivalent_exchange:energy_collector", {
 		local inv = meta:get_inventory()
 		inv:set_size('src', 1)
 		inv:set_size('dst', 9)
-		meta:set_string("formspec", equivalent_exchange.energy_collector_formspec(0.5, 0))
+		meta:set_string("formspec", equivalent_exchange.energy_collector_formspec(0.5, 0, 1))
 	end,
-	allow_metadata_inventory_put = allow_metadata_inventory_put
+	allow_metadata_inventory_put = allow_metadata_inventory_put,
+	on_punch = function (pos, node, puncher, pointed_thing)
+	 -- upgrade the energy collector:
+	 if puncher ~= nil and puncher:is_player() and puncher:get_wielded_item():get_name() == "equivalent_exchange:energy_collector" then
+		local inv_ref = puncher:get_inventory()
+		inv_ref:remove_item("main", ItemStack({name = "equivalent_exchange:energy_collector", count = 1}))
+		local meta = minetest.get_meta(pos)
+		local level = meta:get_int("level")
+		level = level + 1
+		meta:set_int("level", level)
+	end
+	end
 })
+
 minetest.register_node("equivalent_exchange:transmutationtable", {
 	description = S("Transmute Materials"),
 	tiles = {
@@ -466,7 +477,7 @@ local function calculate_orthogonal_to_standard_basis_vector(unit_vector)
 end
 
 minetest.register_tool("equivalent_exchange:divining_rod_low",
-	{ description = "Search for average EMC inside a 3x3x3 area by left clicking!",
+	{ description = "Low Diviningrod",
 		inventory_image = "equivalent_exchange_low_divining_rod.png^[colorize:#0cf058:128",
 		on_use = function(item_stack, user, pointed_thing)
 
@@ -537,7 +548,7 @@ function equivalent_exchange.charge_medium(itemstack, placer, pointed_thing)
 end
 
 minetest.register_tool("equivalent_exchange:divining_rod_medium",
-	{ description = "Search for average EMC inside a 3x3x3 - 16x3x3 area by left clicking!",
+	{ description = "Medium Diviningrod",
 		inventory_image = "equivalent_exchange_low_divining_rod.png^[colorize:#0ce8f0:128",
 		on_use = function(item_stack, user, pointed_thing)
 			if pointed_thing.type == "node" and user:is_player() then
