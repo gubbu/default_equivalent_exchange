@@ -4,10 +4,12 @@ local S = default.get_translator
 
 local emc_values = {
 	-- items EMC Values
+	["default:stick"] = 2,
 	["default:flint"] = 4,
 	["default:furnace"] = 8,
 	["default:cactus"] = 8,
 	["default:papyrus"] = 32,
+	["default:coal_lump"] = 128,
 	["default:paper"] = 3 * 32,
 	["default:book"] = 3 * 3 * 32,
 	["default:copper_ingot"] = 85,
@@ -26,8 +28,10 @@ local emc_values = {
 	["bucket:bucket_empty "] = 768,
 	["bucket:bucket_water"] = 769,
 	["bucket:bucket_lava"] = 832,
+	["default:torch"] = 32,
+	["default:meselamp"] = 64*9+1,
 	-- Node EMC Values
-	["default:stone_with_coal"] = 32,
+	["default:stone_with_coal"] = 128,
 	["default:stone_with_copper"] = 85,
 	["default:stone_with_tin"] = 85,
 	["default:stone_with_iron"] = 256,
@@ -40,6 +44,7 @@ local emc_values = {
 	["default:clay"] = 256,
 	["default:clay_lump"] = 64,
 	["default:clay_brick"] = 64,
+	["default:diamondblock"] = 9*8192,
 }
 
 local group_emc_values = {

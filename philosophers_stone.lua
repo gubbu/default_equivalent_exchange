@@ -1,4 +1,4 @@
--- TODO: water => ice, Lava => obsidian, Flowers => Other Flowers
+
 local philosophers_stone_node_conversion_table = {
     ["default:stone"] = "default:cobble",
     ["default:cobble"] = "default:stone",
@@ -9,7 +9,20 @@ local philosophers_stone_node_conversion_table = {
     ["default:sandstone"] = "default:gravel",
     ["default:water_source"] = "default:ice",
     ["default:lava_source"] = "default:obsidian",
-    ["default:silver_sand"] = "default:sand"
+    ["default:silver_sand"] = "default:sand",
+    ["flowers:tulip"] = "flowers:rose",
+    ["flowers:rose"] = "flowers:dandelion_yellow",
+    ["flowers:dandelion_yellow"] = "flowers:chrysanthemum_green",
+    ["flowers:chrysanthemum_green"] = "flowers:dandelion_white",
+    ["flowers:dandelion_white"] = "flowers:viola",
+    ["flowers:viola"] = "flowers:geranium",
+    ["flowers:geranium"] = "flowers:tulip_black",
+    ["flowers:tulip_black"] = "flowers:tulip",
+    ["default:aspen_tree"] = "default:tree",
+    ["default:tree"] = "default:pine_tree",
+    ["default:pine_tree"] = "default:acacia_tree",
+    ["default:acacia_tree"] = "default:jungletree",
+    ["default:jungletree"] = "default:aspen_tree"
 }
 
 local philosophers_stone_node_conversion_table_sneak = {
