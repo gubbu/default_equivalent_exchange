@@ -649,3 +649,4 @@ minetest.register_craft({
 local default_path = minetest.get_modpath("equivalent_exchange")
 
 dofile(default_path .. "/philosophers_stone.lua")
+dofile(default_path .. "/hopper_support.lua")
