@@ -11,6 +11,7 @@ local emc_values = {
 	["default:cactus"] = 8,
 	["default:papyrus"] = 32,
 	["default:coal_lump"] = 128,
+	["default:apple"] = 128,
 	["default:paper"] = 3 * 32,
 	["default:book"] = 3 * 3 * 32,
 	["default:copper_ingot"] = 85,
@@ -49,7 +50,8 @@ local emc_values = {
 	["default:diamondblock"] = 9 * 8192,
 	["equivalent_exchange:transmutationtable"] = 4*64+4,
 	["equivalent_exchange:energy_collector"] = (4*64+4)*4 + 4*64 + 9 * 8192,
-	["equivalent_exchange:philosophers_stone"] = 4*2048 + 4 * 64 + 8192
+	["equivalent_exchange:philosophers_stone"] = 4*2048 + 4 * 64 + 8192,
+	["default:coalblock"] = 9*128,
 }
 
 local group_emc_values = {
@@ -63,7 +65,7 @@ local group_emc_values = {
 	["flora"] = 16, -- flowers and shrubs
 	["sapling"] = 32,
 	["tree"] = 32,
-	["coal"] = 32,
+	["coal"] = 128,
 	["wool"] = 48,
 	["water_bucket"] = 769,
 	["glass"] = 1,
@@ -189,43 +191,25 @@ local function furnace_node_timer(pos, elapsed)
 		local src_value = get_item_emc_value(src_stack)
 		item_percent = math.min(100, math.floor(emc_storage_int / src_value * 100))
 		if src_value > 0 and emc_storage_int >= src_value then
+		    -- Gemerate as , many items as the stored emc and inventory space allows.
 			local potential_products = math.floor(emc_storage_int / src_value)
 			local max_stack_size = ItemStack({ name = src_name, count = potential_products }):get_stack_max()
-			emc_storage_int = emc_storage_int - potential_products * src_value
-			local dstlist = inv:get_list("dst")
-			-- put > max_stack items into the dst inventory TODO: simplify this?
-			for i, item_stack in ipairs(dstlist) do
-				if item_stack:is_empty() then
-					if potential_products >= max_stack_size then
-						potential_products = potential_products - max_stack_size
-						local full_stack = ItemStack({ name = src_name, count = max_stack_size })
-						inv:set_stack("dst", i, full_stack)
-					else
-						local last_stack = ItemStack({ name = src_name, count = potential_products })
-						inv:set_stack("dst", i, last_stack)
-						potential_products = 0
-						break
-					end
-				elseif item_stack:get_name() == src_name then
-					local put_on = max_stack_size - item_stack:get_count()
-					if put_on == 0 then --if this condition is removed: this does not work and a bug shows, where stacksizes >6000 in the next loop
-						::continue::
-					elseif put_on >= potential_products then
-						local new_stack_size = potential_products + item_stack:get_count()
-						potential_products = 0
-						local last_stack = ItemStack({ name = src_name, count = new_stack_size })
-						inv:set_stack("dst", i, last_stack)
-						break
-					else
-						potential_products = potential_products - put_on
-						local full_stack = ItemStack({ name = src_name, count = max_stack_size })
-						inv:set_stack("dst", i, full_stack)
-					end
+			while potential_products ~= 0 do
+				local items_to_add = 0
+				if potential_products > max_stack_size then
+					items_to_add = max_stack_size
+                else
+					items_to_add = potential_products
+                end
+                emc_storage_int = emc_storage_int - items_to_add * src_value
+                local leftovers = inv:add_item("dst", ItemStack({ name = src_name, count = items_to_add }))
+				if leftovers:get_count() > 0 then
+					local leftovers_emc_value = leftovers:get_count() * src_value
+					emc_storage_int = leftovers_emc_value + emc_storage_int
+					break
 				end
+				potential_products = potential_products - items_to_add
 			end
-			local leftovers_emc_value = potential_products * src_value
-			--convert leftovers back to emc:
-			emc_storage_int = leftovers_emc_value + emc_storage_int
 			item_percent = math.min(100, math.floor(emc_storage_int / src_value * 100))
 		end
 
@@ -238,12 +222,12 @@ local function furnace_node_timer(pos, elapsed)
 		emc_storage_int
 	)
 
-	-- local infotext = "EMC Table: " .. tostring(emc_storage_int)
+	local infotext = "EMC Table: " .. tostring(emc_storage_int)
 	--
 	-- Set meta values
 	--
 	meta:set_string("formspec", formspec)
-	-- meta:set_string("infotext", infotext)
+	meta:set_string("infotext", infotext)
 	meta:set_int("emc_storage", emc_storage_int)
 
 	return false
@@ -252,7 +236,7 @@ end
 local function collector_timer(pos, elapsed)
 	local meta = minetest.get_meta(pos)
 	local emc_storage_int = meta:get_int("emc_storage") or 0
-	local emc_table_level = meta:get_int("level") or 1
+	local emc_table_level = meta:get_int("level") or 1 --
 	local inv = meta:get_inventory()
 	local srclist = inv:get_list("src")
 	emc_storage_int = emc_storage_int + emc_table_level
@@ -267,47 +251,28 @@ local function collector_timer(pos, elapsed)
 		if src_value > 0 and emc_storage_int >= src_value then
 			potential_products = math.floor(emc_storage_int / src_value)
 			local max_stack_size = ItemStack({ name = src_name, count = potential_products }):get_stack_max()
-			emc_storage_int = emc_storage_int - potential_products * src_value
-			local dstlist = inv:get_list("dst")
-			-- put > max_stack items into the dst inventory TODO: simplify this?
-			for i, item_stack in ipairs(dstlist) do
-				if item_stack:is_empty() then
-					if potential_products >= max_stack_size then
-						potential_products = potential_products - max_stack_size
-						local full_stack = ItemStack({ name = src_name, count = max_stack_size })
-						inv:set_stack("dst", i, full_stack)
-					else
-						local last_stack = ItemStack({ name = src_name, count = potential_products })
-						inv:set_stack("dst", i, last_stack)
-						potential_products = 0
-						break
-					end
-				elseif item_stack:get_name() == src_name then
-					local put_on = max_stack_size - item_stack:get_count()
-					if put_on == 0 then --if this condition is removed: this does not work and a bug shows, where stacksizes >6000 in the next loop
-						::continue::
-					elseif put_on >= potential_products then
-						local new_stack_size = potential_products + item_stack:get_count()
-						potential_products = 0
-						local last_stack = ItemStack({ name = src_name, count = new_stack_size })
-						inv:set_stack("dst", i, last_stack)
-						break
-					else
-						potential_products = potential_products - put_on
-						local full_stack = ItemStack({ name = src_name, count = max_stack_size })
-						inv:set_stack("dst", i, full_stack)
-					end
+			while potential_products ~= 0 do
+				local items_to_add = 0
+				if potential_products > max_stack_size then
+					items_to_add = max_stack_size
+                else
+					items_to_add = potential_products
+                end
+                emc_storage_int = emc_storage_int - items_to_add * src_value
+                local leftovers = inv:add_item("dst", ItemStack({ name = src_name, count = items_to_add }))
+				if leftovers:get_count() > 0 then
+					local leftovers_emc_value = leftovers:get_count() * src_value
+					emc_storage_int = leftovers_emc_value + emc_storage_int
+					break
 				end
+				potential_products = potential_products - items_to_add
 			end
+			item_percent = math.min(100, math.floor(emc_storage_int / src_value * 100))
 		end
-		local leftovers_emc_value = potential_products * src_value
-		--convert leftovers back to emc:
-		emc_storage_int = leftovers_emc_value + emc_storage_int
-		item_percent = math.min(100, math.floor(emc_storage_int / src_value * 100))
 	end
 
 	meta:set_int("emc_storage", emc_storage_int)
-	meta:set_string("infotext", "current_emc:" .. tostring(emc_storage_int))
+	meta:set_string("infotext", "Generated EMC: " .. tostring(emc_storage_int))
 	meta:set_string("formspec",
 		equivalent_exchange.energy_collector_formspec(item_percent, emc_storage_int, emc_table_level))
 	return true
@@ -351,6 +316,7 @@ minetest.register_node("equivalent_exchange:energy_collector", {
 		inv:set_size('src', 1)
 		inv:set_size('dst', 9)
 		meta:set_string("formspec", equivalent_exchange.energy_collector_formspec(0.5, 0, 1))
+		meta:set_int("level", 1)
 	end,
 	allow_metadata_inventory_put = allow_metadata_inventory_put,
 	on_punch = function(pos, node, puncher, pointed_thing)

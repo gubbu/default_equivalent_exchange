@@ -91,7 +91,7 @@ end
 
 minetest.register_tool("equivalent_exchange:philosophers_stone",
     {
-    description = "Convert Items using the crafting grid, and convert nodes to other nodes.",
+    description = "Philosphers Stone", -- Convert Items using the crafting grid, and convert nodes to other nodes.
     inventory_image = "equivalent_exchange_philosophers_stone.png",
     liquids_pointable = true,
     on_use = function(item_stack, user, pointed_thing)
@@ -177,6 +177,7 @@ minetest.register_tool("equivalent_exchange:philosophers_stone",
                             local convert_to = conversion_table_to_use[name]
                             if convert_to ~= nil then
                                 minetest.set_node({ x = x, y = y, z = z }, { name = convert_to })
+                                minetest.punch_node({ x = x, y = y, z = z }) -- to make sand fall after player created sand from dirt
                             end
                         end
                     end
